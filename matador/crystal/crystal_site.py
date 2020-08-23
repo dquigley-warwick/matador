@@ -57,11 +57,8 @@ class Site(DataContainer):
         self.set_position(position, position_unit)
         self._occupancy = None
 
-        self.site_data = {}
-        self.site_data.update(site_data)
-
     def __getitem__(self, key):
-        """ Add extra look-up in `self.site_data` to
+        """ Add extra look-up in `self._data` to
         :class:`DataContainer`'s `__getitem__`.
 
         Parameters:
@@ -77,9 +74,9 @@ class Site(DataContainer):
             pass
 
         try:
-            return self.site_data[key]
+            return self._data[key]
         except KeyError:
-            raise KeyError('Site has no data/site_data or implementation for requested key: "{}"'
+            raise KeyError('Site has no data/_data or implementation for requested key: "{}"'
                            .format(key))
 
     def __str__(self):

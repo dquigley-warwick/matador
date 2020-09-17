@@ -21,7 +21,7 @@ class DataContainer(ABC):
 
     required_keys = []
 
-    def __init__(self, data=None, **kwargs):
+    def __init__(self, data=None, mutable=False, **kwargs):
         """ Initalise copy of raw data. """
         if isinstance(data, dict):
             self._data = copy.deepcopy(data)
@@ -29,6 +29,7 @@ class DataContainer(ABC):
             self._data = {key: kwargs[key] for key in kwargs}
 
         self._validate_inputs()
+        self._mutable = mutable
         self._root_source = "unknown"
 
     @property
@@ -83,13 +84,18 @@ class DataContainer(ABC):
         try:
             return self._data[key]
         except KeyError:
-            raise KeyError('Object has no data or implementation for requested key: "{}"'
-                           .format(key))
+            raise KeyError(f'Object {self} has no data or implementation for requested key: "{key}"')
 
     def __delitem__(self, key: str):
-        raise AttributeError('Object does not support deletion of keys in `_data`.')
+        raise AttributeError(f'Object {self} does not support deletion of keys in `_data`.')
+
+    def pop(self, key):
+        return self._data.pop(key, None)
 
     def __setitem__(self, key: str, item):
+        if self._mutable:
+            self._data[key] = item
+            return
         if key not in self._data or self._data[key] is None:
             self._data[key] = item
             return

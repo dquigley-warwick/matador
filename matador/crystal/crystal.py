@@ -132,8 +132,18 @@ class Crystal(DataContainer):
             raise RuntimeError('No species information found `"atom_types"`, cannot create Crystal.')
         if not any(key in doc for key in ['positions_frac', 'positions_abs']):
             raise RuntimeError('No position information found `"positions_frac"/"positions_abs"`, cannot create Crystal.')
+        if "positions_frac" in doc and len(doc["atom_types"]) != len(doc["positions_frac"]):
+            raise RuntimeError(
+                'Position data and atom species data are incompatible: '
+                f'{len(doc["positions_frac"])} vs {len(doc["atom_types"])}'
+            )
+        if "positions_abs" in doc and len(doc["atom_types"]) != len(doc["positions_abs"]):
+            raise RuntimeError(
+                'Position data and atom species data are incompatible: '
+                f'{len(doc["positions_abs"])} vs {len(doc["atom_types"])}'
+            )
 
-    def __init__(self, doc, voronoi=False, network_kwargs=None):
+    def __init__(self, doc, voronoi=False, network_kwargs=None, mutable=False):
         """ Initialise Crystal object from matador document with Site list
         and any additional abstractions, e.g. voronoi or CrystalGraph.
 
@@ -152,7 +162,7 @@ class Crystal(DataContainer):
         if isinstance(doc, Crystal):
             doc = deepcopy(doc._data)
 
-        super().__init__(doc)
+        super().__init__(doc, mutable=mutable)
 
         self.elems = sorted(list(set(self._data['atom_types'])))
         self.sites = []

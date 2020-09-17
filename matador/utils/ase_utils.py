@@ -51,7 +51,7 @@ def ase2dict(atoms, as_model=False) -> Union[dict, Crystal]:
     doc['num_fu'] = doc['num_atoms'] / int(sum(doc['stoichiometry'][i][1] for i in range(len(doc['stoichiometry']))))
     doc['space_group'] = get_spacegroup_spg(doc, symprec=0.001)
 
-    if atoms.info:
+    if hasattr(atoms, "info"):
         doc["ase_info"] = copy.deepcopy(atoms.info)
 
     if as_model:

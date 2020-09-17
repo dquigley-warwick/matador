@@ -71,6 +71,8 @@ def plot_voltage_curve(
             .format(len(line_kwargs), len(profiles))
         )
 
+    colours = list(plt.rcParams['axes.prop_cycle'].by_key()["color"])
+
     dft_label = None
     if expt is not None:
         expt_data = np.loadtxt(expt, delimiter=',')
@@ -92,9 +94,13 @@ def plot_voltage_curve(
         if curve_labels is not None and len(curve_labels) > ind:
             _label = curve_labels[ind]
 
-        _line_kwargs = {'c': list(plt.rcParams['axes.prop_cycle'].by_key()['color'])[ind+2]}
+        _line_kwargs = {'c': colours[(ind+2) % len(colours)]}
         if line_kwargs is not None:
             _line_kwargs.update(line_kwargs[ind])
+
+        # de-dupe c/color keys if user provided them
+        if _line_kwargs.get("color") is not None:
+            _line_kwargs["c"] = _line_kwargs.pop("color")
 
         _add_voltage_curve(profile.capacities, profile.voltages, ax, label=_label, **_line_kwargs)
 
@@ -114,7 +120,7 @@ def plot_voltage_curve(
             _position = (profiles[0].capacities[ind], profiles[0].voltages[ind] + max(profiles[0].voltages)*0.01)
             ax.annotate(_label, xy=_position, textcoords="data", ha="center", zorder=9999)
 
-    if expt or len(profiles) > 1:
+    if expt or len(profiles) > 1 and len(profiles) < 10:
         ax.legend()
 
     ax.set_ylabel('Voltage (V) vs {ion}$^+/${ion}'.format(ion=profile.active_ion))

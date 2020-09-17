@@ -57,6 +57,7 @@ class QueryConvexHull:
 
     def __init__(self, query=None, cursor=None, elements=None, species=None, voltage=False, volume=False, subcmd=None,
                  plot_kwargs=None, lazy=False, energy_key='enthalpy_per_atom', client=None, collections=None, db=None,
+                 include_elemental_electrodes=False,
                  **kwargs):
         """ Initialise the class from either a DBQuery or a cursor (list
         of matador dicts) and construct the appropriate phase diagram.
@@ -76,6 +77,8 @@ class QueryConvexHull:
             client (pymongo.MongoClient): optional client to pass to DBQuery.
             collections (dict of pymongo.collections.Collection): optional dict of collections to pass to DBQuery.
             db (str): db name to connect to in DBQuery.
+            include_elemental_electrodes (bool): whether to count elemental materials as starting materials for
+                an electrode when constructing ternary voltage curves.
 
         """
         self.args = dict()
@@ -95,6 +98,7 @@ class QueryConvexHull:
 
         self.from_cursor = False
         self.plot_params = False
+        self._include_elemental_electrodes = include_elemental_electrodes
 
         self.compute_voltages = voltage
         self.compute_volumes = volume
@@ -668,19 +672,25 @@ class QueryConvexHull:
         # do another convex hull on just the known hull points, to allow access to useful indices
         convex_hull = scipy.spatial.ConvexHull(points)
 
-        endpoints, endstoichs = Electrode._find_starting_materials(convex_hull.points, stoichs)
-        print('{} starting point(s) found.'.format(len(endstoichs)))
-        for endstoich in endstoichs:
-            print(get_formula_from_stoich(endstoich), end=' ')
-        print('\n')
+        endpoints, endstoichs = Electrode._find_starting_materials(
+            convex_hull.points,
+            stoichs,
+            include_elemental=self._include_elemental_electrodes
+        )
 
         # iterate over possible delithiated phases
+        null_reactions = []
         for reaction_ind, endpoint in enumerate(endpoints):
             print(30 * '-')
-            print('Reaction {}, {}:'.format(reaction_ind+1, get_formula_from_stoich(endstoichs[reaction_ind])))
-            reactions, capacities, voltages, average_voltage, volumes = self._construct_electrode(
-                convex_hull, endpoint, endstoichs[reaction_ind], hull_cursor
-            )
+            print('Assessing reaction {}, {}:'.format(reaction_ind+1, get_formula_from_stoich(endstoichs[reaction_ind])))
+            try:
+                reactions, capacities, voltages, average_voltage, volumes = self._construct_electrode(
+                    convex_hull, endpoint, endstoichs[reaction_ind], hull_cursor
+                )
+            except RuntimeError:
+                print("No reactions found.")
+                null_reactions.append(reaction_ind)
+                continue
 
             profile = VoltageProfile(
                 starting_stoichiometry=endstoichs[reaction_ind],
@@ -700,6 +710,14 @@ class QueryConvexHull:
                 self.volume_data['volume_ratio_with_bulk'].append(np.asarray(volumes) / volumes[0])
                 self.volume_data['volume_expansion_percentage'].append(((np.asarray(volumes) / volumes[0]) - 1) * 100)
                 self.volume_data['hull_distances'].append(np.zeros_like(capacities))
+
+        endstoichs = [stoich for ind, stoich in enumerate(endstoichs) if ind not in null_reactions]
+        endpoints = [point for ind, point in enumerate(endpoints) if ind not in null_reactions]
+
+        print(f"{30*'='}\n{len(endstoichs)} starting point(s) found.")
+        for endstoich in endstoichs:
+            print(get_formula_from_stoich(endstoich), end=' ')
+        print(f"\n{30*'='}\n")
 
     def _calculate_binary_volume_curve(self):
         """ Take stable compositions and volume and calculate volume
@@ -777,6 +795,9 @@ class QueryConvexHull:
         intersections, crossover = self._find_hull_pathway_intersections(
             endpoint, endstoich, hull
         )
+        if len(intersections) < 2:
+            raise RuntimeError(f"No reactions found for starting point {endstoich}.")
+
         return self._compute_voltages_from_intersections(
             intersections, hull, crossover, endstoich, hull_cursor
         )
@@ -832,7 +853,11 @@ class QueryConvexHull:
             comp[:, 2] = 1 - comp[:, 0] - comp[:, 1]
 
             # normalize the crossover composition to one formula unit of the starting electrode
-            norm = np.asarray(crossover[ind][1:]) / np.asarray(initial_comp[1:])
+            if np.where(np.asarray(initial_comp[1:]) < EPS)[0].tolist():
+                norm = [1]
+            else:
+                norm = np.asarray(crossover[ind][1:]) / np.asarray(initial_comp[1:])
+
             ratios_of_phases = np.linalg.solve(comp.T, crossover[ind] / norm[0])
 
             # remove small numerical noise
@@ -910,6 +935,18 @@ class QueryConvexHull:
         compositions[:, 0] = hull.points[:, 0]
         compositions[:, 1] = hull.points[:, 1]
         compositions[:, 2] = 1 - hull.points[:, 0] - hull.points[:, 1]
+
+        # rotate composition space away from 0
+        _rotated_composition = False
+        if np.sum(endpoint) == 0:
+            _rotated_composition = True
+            _compositions = np.array(compositions)
+            _compositions[:, 1] = compositions[:, 2]
+            _compositions[:, 2] = compositions[:, 1]
+            compositions = _compositions
+            _endpoint = np.array(endpoint)
+            _endpoint[1] = 1 - np.sum(endpoint)
+            endpoint = _endpoint
 
         # define the composition pathway through ternary space
         gradient = endpoint[1] / (endpoint[0] - 1)
@@ -1031,6 +1068,13 @@ class QueryConvexHull:
                     simplices[simp_ind] = zero[0]
 
         intersections = sorted(simplices.items(), key=lambda x: x[1])
+        if _rotated_composition:
+            for ind, cross in enumerate(crossover):
+                import copy
+                _cross = copy.deepcopy(cross)
+                _cross[1] = cross[2]
+                _cross[2] = cross[1]
+                crossover[ind] = _cross
 
         if len(intersections) == 0:
             raise RuntimeError(

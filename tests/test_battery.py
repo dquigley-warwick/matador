@@ -266,15 +266,34 @@ class VoltageTest(unittest.TestCase):
             no_plot=True,
             pathways=True,
             voltage=True,
+            include_elemental_electrodes=True,
         )
         np.testing.assert_array_almost_equal(
             np.asarray(hull.voltage_data[0].voltages),
+            np.asarray([1.3782, 1.3782, 1.08137, 0.8196, 0.5474, 0.47608, 0.1772, 0.000]),
+            decimal=3,
+        )
+        self.assertAlmostEqual(hull.voltage_data[0].capacities[-2], 1153.82071, places=5)
+        self.assertAlmostEqual(
+            hull.voltage_data[0].average_voltage, 0.70595, places=4
+        )
+        np.testing.assert_array_almost_equal(
+            np.asarray(hull.voltage_data[1].voltages),
             np.asarray([1.1845, 1.1845, 0.8612, 0.2676, 0.000]),
             decimal=3,
         )
-        self.assertAlmostEqual(hull.voltage_data[0].capacities[-2], 425.7847612, places=5)
+        self.assertAlmostEqual(hull.voltage_data[1].capacities[-2], 425.7847612, places=5)
         self.assertAlmostEqual(
-            hull.voltage_data[0].average_voltage, 0.58523, places=4
+            hull.voltage_data[1].average_voltage, 0.58523, places=4
+        )
+        np.testing.assert_array_almost_equal(
+            np.asarray(hull.voltage_data[2].voltages),
+            np.asarray([0.85902, 0.85902, 0.5619, 0.3128, 0.0]),
+            decimal=3,
+        )
+        self.assertAlmostEqual(hull.voltage_data[2].capacities[-2], 240.843514, places=5)
+        self.assertAlmostEqual(
+            hull.voltage_data[2].average_voltage, 0.478747, places=4
         )
         self._check_voltages_match_capacities(hull.voltage_data)
 

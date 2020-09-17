@@ -300,15 +300,20 @@ class Crystal(DataContainer):
         return self._data['stoichiometry']
 
     @property
-    def concentration(self):
+    def num_fu(self):
+        if 'num_fu' not in self._data:
+            self._data["num_fu"] = self.num_atoms / sum(atom[1] for atom in self.stoichiometry)
+        return self._data["num_fu"]
+
+    def get_concentration(self, elements=None, include_end=True):
         """ Return concentration of each species in stoichiometry. """
-        if 'concentration' not in self._data:
-            self._data['concentration'] = get_concentration(
-                self.stoichiometry,
-                [elem[0] for elem in self.stoichiometry],
-                include_end=True
-            )
-        return self._data['concentration']
+        if elements is None:
+            elements = self.elems
+        return get_concentration(
+            self.stoichiometry,
+            elements=elements,
+            include_end=include_end
+        )
 
     @property
     def formula(self):

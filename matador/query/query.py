@@ -54,6 +54,7 @@ class DBQuery:
         collections=False,
         subcmd='query',
         debug=False,
+        hull=False,
         quiet=False,
         mongo_settings=None,
         **kwargs
@@ -82,7 +83,7 @@ class DBQuery:
         if subcmd in ['hull', 'hulldiff', 'voltage'] and self.args.get('composition') is None:
             raise RuntimeError('{} requires composition query'.format(subcmd))
 
-        self._create_hull = (self.args.get('subcmd') in ['hull', 'hulldiff', 'voltage'] or
+        self._create_hull = (hull or self.args.get('subcmd') in ['hull', 'hulldiff', 'voltage'] or
                              self.args.get('hull_cutoff') is not None)
 
         # public attributes

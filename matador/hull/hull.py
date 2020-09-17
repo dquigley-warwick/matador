@@ -41,6 +41,8 @@ class QueryConvexHull:
         cursor (list): list of all structures used to create phase diagram.
         hull_cursor (list): list of all documents within hull_cutoff.
         chempot_cursor (list): list of chemical potential documents.
+        chempots (dict): dictionary mapping formula of chemical potential to the value
+            of the chemical potential used to construct the hull.
         structures (numpy.ndarray): all structures used to create hull.
         hull_dist (np.ndarray): array of distances from hull for each structure.
         species (list): list of chemical potential symbols.
@@ -115,7 +117,7 @@ class QueryConvexHull:
             # this isn't strictly necessary but it maintains the sanctity of the query results
             self.cursor = list(deepcopy(query.cursor))
             self.args['use_source'] = False
-            if self._query.args['subcmd'] not in ['hull', 'voltage', 'hulldiff']:
+            if not self._query._create_hull:
                 print_warning('Query was not prepared with subcmd=hull, so cannot guarantee consistent formation energies.')
         else:
             self.cursor = list(cursor)
@@ -126,6 +128,7 @@ class QueryConvexHull:
         self.structures = None
         self.convex_hull = None
         self.chempot_cursor = None
+        self.chempots = {}
         self.hull_cursor = None
         self.phase_diagram = None
         self.hull_dist = None
@@ -459,6 +462,10 @@ class QueryConvexHull:
             for elem, _ in mu['stoichiometry']:
                 if elem not in elements:
                     elements.append(elem)
+
+            formula = get_formula_from_stoich(mu["stoichiometry"])
+            self.chempots[formula] = mu[energy_key]
+
         self.elements = elements
         self.num_elements = len(elements)
 
@@ -516,7 +523,7 @@ class QueryConvexHull:
         """
         hull_cursor = cursor
         if hull_cursor is None:
-            hull_cursor = [doc for doc in self.hull_cursor if doc.get("hull_distance", 1e20) < 1e-9]
+            hull_cursor = [doc for doc in self.hull_cursor if doc.get("hull_distance", 1e20) < EPS]
 
         if not self._non_elemental:
             self._setup_per_b_fields()
@@ -530,7 +537,7 @@ class QueryConvexHull:
         self._scale_voltages(self.species[0])
 
         for profile in self.voltage_data:
-            print(profile.voltage_summary(csv=self.args.get('csv', False)))
+            print("\n" + profile.voltage_summary(csv=self.args.get('csv', False)) + "\n")
 
     def volume_curve(self):
         """ Take stable compositions and volume and calculate
@@ -647,9 +654,6 @@ class QueryConvexHull:
             hull_cursor (list(dict)): list of structures to include in the voltage curve.
 
         """
-
-        # construct working array of concentrations and energies
-        stoichs = get_array_from_cursor(hull_cursor, 'stoichiometry')
 
         # do another convex hull on just the known hull points, to allow access to useful indices
         import scipy.spatial
@@ -936,7 +940,7 @@ class QueryConvexHull:
 
             # put each vertex of triangle into line equation and test their signs
             test = vertices[:, 0] * gradient + y0 - vertices[:, 1]
-            test[np.abs(test) < BOUNDARY_EPS] = 0.0
+            test[np.abs(test) < BOUNDARY_EPS] = 0
             test = np.sign(test)
 
             # if there are two different signs in the test array, then the line intersects/grazes this face triangle

@@ -100,11 +100,13 @@ class MagresReferencer:
             raise RuntimeError("Fit has not yet been performed.")
 
     @plotting_function
-    def plot_fit(self, padding=100):
+    def plot_fit(self, ax=None, padding=100):
         import matplotlib.pyplot as plt
         import seaborn as sns
 
-        fig, ax = plt.subplots()
+        if ax is None:
+            fig, ax = plt.subplots()
+
         ax.grid(True)
         ax.set_ylim(np.min(self._calc_shifts) - padding, np.max(self._calc_shifts) + padding)
         ax.set_xlim(np.min(self._expt_shifts) - padding, np.max(self._expt_shifts) + padding)
@@ -126,3 +128,5 @@ class MagresReferencer:
         )
         ax.set_xlabel("$\\delta_\\mathrm{expt}$ (ppm)")
         ax.set_ylabel("$\\sigma_\\mathrm{calc}$ (ppm)")
+
+        return ax

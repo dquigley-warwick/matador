@@ -3,6 +3,7 @@
 
 from typing import Dict, List, Optional
 import numpy as np
+import warnings
 
 from matador.plotting.plotting import plotting_function
 from matador.crystal import Crystal
@@ -19,11 +20,13 @@ class MagresReferencer:
         shifts_exp: List[Dict[str, List[float]]],
         species: str,
         structures: Optional[List[Crystal]] = None,
+        warn_tolerance: float = 0.1,
     ):
         self.structures_exp = structures_exp
         self.shifts_exp = shifts_exp
         self.species = species
         self.structures = structures
+        self.warn_tolerance = warn_tolerance
 
         self._calc_shifts = []
         self._expt_shifts = []
@@ -71,7 +74,7 @@ class MagresReferencer:
         for ind, struc in enumerate(structures):
             for jnd, site in enumerate(struc):
                 if site.species == self.species:
-                    structures[ind][jnd]["chemical_shift_iso"] = self.predict(site["chemical_shielding_iso"])
+                    structures[ind][jnd]["chemical_shift_iso"] = self.predict(site["chemical_shielding_iso"])[0]
 
         return structures
 
@@ -79,16 +82,22 @@ class MagresReferencer:
         import statsmodels.api as sm
 
         _fit_shifts = sm.add_constant(self._calc_shifts)
-        self.fit_model = sm.regression.linear_model.OLS(self._expt_shifts, _fit_shifts)
+        self.fit_model = sm.regression.linear_model.WLS(self._expt_shifts, _fit_shifts, weights=self._fit_weights)
         self.fit_results = self.fit_model.fit()
         self.fit_intercept = self.fit_results.params[0]
         self.fit_gradient = self.fit_results.params[1]
         self.fit_rsquared = self.fit_results.rsquared
         self._fitted = True
 
+        if abs(self.fit_gradient + 1.0) > self.warn_tolerance:
+            warnings.warn(
+                f"{self.__class__.__name__} fit gradient was {self.fit_gradient:.2f}, "
+                f"outside of tolerated range -1.0 ± {self.warn_tolerance:.2f}"
+            )
+
     def predict(self, shifts):
         _shifts = np.asarray(shifts)
-        return self.fit_gradient * _shifts + self.fit_intercept
+        return self.fit_gradient * _shifts + self.fit_intercept, self.fit_results.bse[1] * _shifts + self.fit_results.bse[0]
 
     def print_fit_summary(self):
         if self._fitted:

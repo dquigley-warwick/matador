@@ -139,3 +139,17 @@ class MagresReferencer:
         ax.set_ylabel("$\\sigma_\\mathrm{calc}$ (ppm)")
 
         return ax
+
+    @plotting_function
+    def plot_fit_and_predictions(self, ax=None, padding=100):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        self.plot_fit(ax=ax, padding=padding)
+
+        for doc in self.structures:
+            _calc_shifts = [site["chemical_shielding_iso"] for site in doc if site.species == self.species]
+            _predicted_shifts, _predicted_errs = self.predict(_calc_shifts)
+            ax.scatter(_predicted_shifts, _calc_shifts, s=5, c='k')
+            ax.errorbar(_predicted_shifts, _calc_shifts, fmt='None', xerr=_predicted_errs, lw=0.5, c='k')
+
+        return ax

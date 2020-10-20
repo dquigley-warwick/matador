@@ -49,7 +49,7 @@ class MagresReferencer:
         self.print_fit_summary()
 
         if self.structures is not None:
-            self.structures = self.set_shifts_from_fit(self.structures)
+            self.set_shifts_from_fit(self.structures)
 
     def match_exp_structure_shifts(self, structure, shifts):
         relevant_sites = [site for site in structure if site.species == self.species]
@@ -83,9 +83,7 @@ class MagresReferencer:
         for ind, struc in enumerate(structures):
             for jnd, site in enumerate(struc):
                 if site.species == self.species:
-                    structures[ind][jnd]["chemical_shift_iso"] = self.predict(site["chemical_shielding_iso"])[0]
-
-        return structures
+                    site["chemical_shift_iso"] = self.predict(site["chemical_shielding_iso"])[0]
 
     def fit(self):
         import statsmodels.api as sm
@@ -144,6 +142,8 @@ class MagresReferencer:
             ax=ax,
             zorder=1e10,
         )
+        import math
+        ax.legend(ncol=int(math.floor(len(set(self._fit_structures)) / 5)))
         ax.set_xlabel("$\\delta_\\mathrm{expt}$ (ppm)")
         ax.set_ylabel("$\\sigma_\\mathrm{calc}$ (ppm)")
 

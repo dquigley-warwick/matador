@@ -32,7 +32,7 @@ class Site(DataContainer):
     }
 
     def __init__(self, species: str, position: list, lattice,
-                 position_unit='fractional', **site_data):
+                 position_unit='fractional', mutable: bool = False, **site_data):
         """ Initialise a Site object from its species, position and
         a reference to the lattice it exists in. Any other keys will be made available
         as site-level values.
@@ -49,7 +49,8 @@ class Site(DataContainer):
         super().__init__(
             species=species,
             position=position,
-            **site_data
+            site_data=site_data,
+            mutable=mutable
         )
 
         self._data["lattice_cart"] = self._lattice
@@ -57,8 +58,17 @@ class Site(DataContainer):
         self.set_position(position, position_unit)
         self._occupancy = None
 
+        self.site_data = {}
+        self.site_data.update(site_data)
+
+    def get(self, key, default=None):
+        try:
+            return self[key]
+        except (KeyError, AttributeError):
+            return default
+
     def __getitem__(self, key):
-        """ Add extra look-up in `self._data` to
+        """ Add extra look-up in `self.site_data` to
         :class:`DataContainer`'s `__getitem__`.
 
         Parameters:
@@ -68,16 +78,33 @@ class Site(DataContainer):
             AttributeError: if key or attribute can't be found.
 
         """
+        if isinstance(key, int):
+            raise ValueError("Object does not support indexing")
         try:
             super().__getitem__(key)
         except (AttributeError, KeyError):
             pass
 
         try:
-            return self._data[key]
+            return self.site_data[key]
         except KeyError:
-            raise KeyError('Site has no data/_data or implementation for requested key: "{}"'
+            raise KeyError('Site has no data/site_data or implementation for requested key: "{}"'
                            .format(key))
+
+    def __setitem__(self, key: str, item):
+        if key not in self.site_data or self.site_data[key] is None:
+            self.site_data[key] = item
+            return
+
+        elif self.site_data[key] != item:
+            try:
+                import math
+                if (math.isnan(item) and math.isnan(self.site_data[key])):
+                    return
+            except TypeError:
+                pass
+            raise AttributeError('Cannot assign value {} to existing key {} with value {}'
+                                 .format(item, key, self.site_data[key]))
 
     def __str__(self):
         site_str = '{species} {pos[0]:4.4f} {pos[1]:4.4f} {pos[2]:4.4f}'.format(species=self.species, pos=self.coords)

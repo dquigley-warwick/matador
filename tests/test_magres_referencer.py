@@ -3,6 +3,7 @@
 
 import unittest
 import numpy as np
+import pytest
 
 
 class TestMagresReferencer(unittest.TestCase):
@@ -115,3 +116,14 @@ class TestMagresReferencer(unittest.TestCase):
         np.testing.assert_array_almost_equal(
             shifts, [-101, -102, -103, -104, -105, -106]
         )
+
+        np.testing.assert_array_almost_equal(
+            LiCoO3_theory["chemical_shift_isos"][4:],
+            [-101, -102, -103, -104, -105, -106]
+        )
+
+        with pytest.raises(AttributeError):
+            LiCoO3_theory[-1]["chemical_shift_iso"] = 123
+
+        with pytest.raises(ValueError):
+            LiCoO3_theory[0][-1]["chemical_shift_iso"] = 123

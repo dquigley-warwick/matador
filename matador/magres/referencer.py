@@ -16,7 +16,7 @@ class MagresReferencer:
 
     def __init__(
         self,
-        structures_exp: List[Crystal],
+        structures_exp: Dict[str, Crystal],
         shifts_exp: List[Dict[str, List[float]]],
         species: str,
         structures: Optional[List[Crystal]] = None,
@@ -34,10 +34,19 @@ class MagresReferencer:
         self._fit_structures = []
         self._fitted = False
 
-        for structure, shifts in zip(self.structures_exp, self.shifts_exp):
-            self.match_exp_structure_shifts(structure, shifts[self.species])
+        for formula in self.shifts_exp:
+            if self.species not in self.shifts_exp[formula]:
+                continue
+
+            if formula not in self.structures_exp:
+                warnings.warn(f"Missing {formula} in reference structures.")
+
+            self.match_exp_structure_shifts(
+                self.structures_exp[formula], self.shifts_exp[formula][self.species]
+            )
 
         self.fit()
+        self.print_fit_summary()
 
         if self.structures is not None:
             self.structures = self.set_shifts_from_fit(self.structures)
@@ -101,7 +110,7 @@ class MagresReferencer:
 
     def print_fit_summary(self):
         if self._fitted:
-            print("Performed OLS fit for: δ_expt = m * δ_calc + c")
+            print("Performed WLS fit for: δ_expt = m * δ_calc + c")
             print(f"m = {self.fit_gradient:3.3f} ± {self.fit_results.bse[1]:3.3f}")
             print(f"c = {self.fit_intercept:3.3f} ± {self.fit_results.bse[0]:3.3f} ppm")
             print(f"R² = {self.fit_rsquared:3.3f}.")

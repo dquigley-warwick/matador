@@ -19,9 +19,9 @@ class TestMagresReferencer(unittest.TestCase):
             )
         )
 
-        expt_shifts = [{"O": [100, 200]}, ]
+        expt_shifts = {"SiO2": {"O": [100, 200]}}
 
-        ref = MagresReferencer([SiO2], expt_shifts, species="O")
+        ref = MagresReferencer({"SiO2": SiO2}, expt_shifts, species="O")
 
         self.assertAlmostEqual(ref.fit_gradient, -1)
         self.assertAlmostEqual(ref.fit_intercept, -100)
@@ -56,7 +56,18 @@ class TestMagresReferencer(unittest.TestCase):
                     [0.9, 0.9, 0.9],
                 ],
                 atom_types=["Li", "Li", "Co", "Co", "O", "O", "O", "O", "O", "O"],
-                chemical_shielding_isos=[-100, -120, -321, -992, -1500, -1600, -1700, -1800, -1900, -2000],
+                chemical_shielding_isos=[
+                    -100,
+                    -120,
+                    -321,
+                    -992,
+                    -1500,
+                    -1600,
+                    -1700,
+                    -1800,
+                    -1900,
+                    -2000,
+                ],
             )
         )
 
@@ -80,15 +91,27 @@ class TestMagresReferencer(unittest.TestCase):
             )
         )
 
-        expt_shifts = [{"O": [100, 200]}, {"O": [1400, 1500, 1600, 1700, 1800, 1900]}]
+        expt_shifts = {
+            "SiO2": {"O": [100, 200]},
+            "LiCoO3": {"O": [1400, 1500, 1600, 1700, 1800, 1900]},
+        }
 
-        ref = MagresReferencer([SiO2, LiCoO3_supercell], expt_shifts, species="O", structures=[LiCoO3_theory])
+        ref = MagresReferencer(
+            {"SiO2": SiO2, "LiCoO3": LiCoO3_supercell},
+            expt_shifts,
+            species="O",
+            structures=[LiCoO3_theory],
+        )
 
         self.assertAlmostEqual(ref.fit_gradient, -1)
         self.assertAlmostEqual(ref.fit_intercept, -100)
         self.assertAlmostEqual(ref.fit_rsquared, 1)
 
         LiCoO3_theory = ref.structures[0]
-        shifts = [site["chemical_shift_iso"] for site in LiCoO3_theory if site.species == "O"]
+        shifts = [
+            site["chemical_shift_iso"] for site in LiCoO3_theory if site.species == "O"
+        ]
 
-        np.testing.assert_array_almost_equal(shifts, [-101, -102, -103, -104, -105, -106])
+        np.testing.assert_array_almost_equal(
+            shifts, [-101, -102, -103, -104, -105, -106]
+        )

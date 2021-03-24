@@ -108,7 +108,7 @@ class MagresReferencer:
 
     def print_fit_summary(self):
         if self._fitted:
-            print("Performed WLS fit for: δ_expt = m * δ_calc + c")
+            print("Performed WLS fit for: δ_expt = m * σ_calc + c")
             print(f"m = {self.fit_gradient:3.3f} ± {self.fit_results.bse[1]:3.3f}")
             print(f"c = {self.fit_intercept:3.3f} ± {self.fit_results.bse[0]:3.3f} ppm")
             print(f"R² = {self.fit_rsquared:3.3f}.")
@@ -116,36 +116,46 @@ class MagresReferencer:
             raise RuntimeError("Fit has not yet been performed.")
 
     @plotting_function
-    def plot_fit(self, ax=None, padding=100):
+    def plot_fit(self, ax=None, padding=100, figsize=None):
         import matplotlib.pyplot as plt
         import seaborn as sns
 
         if ax is None:
-            fig, ax = plt.subplots()
+            fig, ax = plt.subplots(figsize=figsize)
 
-        ax.grid(True)
-        ax.set_ylim(np.min(self._calc_shifts) - padding, np.max(self._calc_shifts) + padding)
-        ax.set_xlim(np.min(self._expt_shifts) - padding, np.max(self._expt_shifts) + padding)
+        ax.grid(False)
+        ax.set_xlim(np.min(self._calc_shifts) - padding, np.max(self._calc_shifts) + padding)
+        ax.set_ylim(np.min(self._expt_shifts) - padding, np.max(self._expt_shifts) + padding)
         ax = sns.regplot(
-            y=self._calc_shifts,
-            x=self._expt_shifts,
+            y=self._expt_shifts,
+            x=self._calc_shifts,
             scatter=False,
             ax=ax,
+            line_kws={"linewidth": 0},
             color="grey",
             truncate=False,
         )
+
         sns.scatterplot(
-            y=self._calc_shifts,
-            x=self._expt_shifts,
+            y=self._expt_shifts,
+            x=self._calc_shifts,
             hue=self._fit_structures,
             palette="Dark2",
             ax=ax,
-            zorder=1e10,
+            zorder=100,
         )
-        import math
-        ax.legend(ncol=int(math.floor(len(set(self._fit_structures)) / 5)))
-        ax.set_xlabel("$\\delta_\\mathrm{expt}$ (ppm)")
-        ax.set_ylabel("$\\sigma_\\mathrm{calc}$ (ppm)")
+
+        ax.plot(
+            np.asarray(ax.get_xlim()),
+            self.fit_gradient * np.asarray(ax.get_xlim()) + self.fit_intercept,
+            label=f"$m = {self.fit_gradient:3.3f}; c = {self.fit_intercept:3.0f}; R^2 = {self.fit_rsquared:3.3f}$",
+            zorder=10,
+            lw=1.5,
+            c="grey",
+        )
+        ax.legend(ncol=1 + len(set(self._fit_structures)) // 5)
+        ax.set_ylabel("$\\delta_\\mathrm{expt}$ (ppm)")
+        ax.set_xlabel("$\\sigma_\\mathrm{calc}$ (ppm)")
 
         return ax
 
